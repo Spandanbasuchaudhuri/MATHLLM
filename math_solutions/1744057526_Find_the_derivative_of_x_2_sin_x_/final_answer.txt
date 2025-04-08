@@ -1,0 +1,7 @@
+**
+
+The derivative of x^2 * sin(x) is:
+
+f'(x) = 2x sin(x) + x^2 cos(x)
+
+I hope this helps! Let me know if you have any questions or need further clarification.

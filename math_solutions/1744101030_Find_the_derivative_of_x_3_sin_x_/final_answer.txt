@@ -1,0 +1,1 @@
+The derivative of x^3 sin(x) is: x^3 cos(x) + 3x^2 sin(x)

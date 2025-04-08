@@ -1,0 +1,5 @@
+{
+  "step_no": 1,
+  "model_output": "Write down the function F(x) = x^3 + x^2 + x + 1",
+  "rollback_triggered": false
+}
