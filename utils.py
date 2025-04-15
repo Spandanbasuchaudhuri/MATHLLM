@@ -20,11 +20,21 @@ def parse_steps_from_text(full_text: str):
     else:
         text_for_steps = parts[0]
         final_answer = parts[1].strip()
+        
     # Now find each "Step X:" in text_for_steps
     pattern = r"(Step\s*\d+:)(.*?)(?=Step\s*\d+:|$)"
     matches = re.findall(pattern, text_for_steps, flags=re.DOTALL)
+    
+    # Prevent duplicates
     steps = []
+    seen_steps = set()
     for label, content in matches:
+        step_num = int(re.search(r'\d+', label).group(0))
+        if step_num in seen_steps:
+            continue
+        seen_steps.add(step_num)
+        
         step_str = (label + content).strip()
         steps.append(step_str)
+    
     return steps, final_answer

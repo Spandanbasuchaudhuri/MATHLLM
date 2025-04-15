@@ -1,0 +1,5 @@
+{
+  "step_no": 4,
+  "model_output": "Now that we have the derivatives of both terms, let's apply the product rule. We multiply the derivative of x^3 by sin(x), and then add the derivative of x^3 multiplied by the derivative of sin(x):\n\n((x^3) sin(x))' = (3x^2)sin(x) + (x^3)(cos(x))",
+  "rollback_triggered": false
+}

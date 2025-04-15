@@ -22,13 +22,17 @@ def extract_math_from_image(image: Image.Image) -> str:
 
 def clean_text(text):
     text = re.sub(r'\*+', '', text)
-    text = re.sub(r'\s+', ' ', text)
+    # Keep newlines for better formatting
+    text = re.sub(r'[ \t]+', ' ', text)
     return text.strip()
 
 def parse_steps_and_answer(text):
     final_answer_match = re.search(r"Final Answer:?(.*?)$", text, re.DOTALL)
     final_answer = final_answer_match.group(1).strip() if final_answer_match else None
     final_answer = clean_text(final_answer) if final_answer else None
+    # Remove trailing "That’s sit!" or similar
+    if final_answer:
+        final_answer = re.sub(r"That.?s sit!?$", "", final_answer, flags=re.IGNORECASE).strip()
     text_for_steps = text[:final_answer_match.start()] if final_answer_match else text
     step_pattern = r"Step\s*(\d+):?\s*(.*?)(?=Step\s*\d+:|Final Answer:|$)"
     step_matches = re.finditer(step_pattern, text_for_steps, re.DOTALL)
@@ -60,10 +64,13 @@ elif input_mode == "Image":
     if uploaded_file:
         image = Image.open(uploaded_file)
         st.image(image, caption="Uploaded Image", use_column_width=True)
-        ocr_text = extract_math_from_image(image)
-        st.markdown("### OCR Extracted Text")
-        st.text_area("Editable OCR Text", value=ocr_text, height=150)
-        question = st.text_area("Math Question from OCR (editable)", value=ocr_text)
+        try:
+            ocr_text = extract_math_from_image(image)
+            st.markdown("### OCR Extracted Text")
+            st.text_area("Editable OCR Text", value=ocr_text, height=150)
+            question = st.text_area("Math Question from OCR (editable)", value=ocr_text)
+        except Exception as e:
+            st.error(f"OCR failed: {e}")
 
 if st.button("🔍 Solve Question"):
     if not question.strip():
@@ -81,8 +88,12 @@ After all steps, write 'Final Answer:' on a new line.
 Problem: {question}
 """
         response = ""
-        for chunk in query_llama3_stream(prompt):
-            response += chunk
+        try:
+            for chunk in query_llama3_stream(prompt):
+                response += chunk
+        except Exception as e:
+            st.error(f"LLM failed: {e}")
+            st.stop()
 
         steps, final_answer = parse_steps_and_answer(response)
         for step in steps:
@@ -90,14 +101,23 @@ Problem: {question}
             step_text = step["content"]
             is_valid = sympy_check(f"Step {step_num}: {step_text}")
             status = "✅" if is_valid else "❌"
-            with st.expander(f"Step {step_num} {status}"):
-                # Try to render as LaTeX if possible, else as text
-                latex_match = re.search(r"\$([^\$]+)\$", step_text)
-                if latex_match:
-                    st.latex(latex_match.group(1))
-                    st.write(step_text.replace(latex_match.group(0), ""))
-                else:
-                    st.write(step_text)
+            with st.expander(f"Step {step_num} {status}", expanded=True):
+                # Split into lines and render each appropriately
+                lines = step_text.split('\n')
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    # Render as bullet if it starts with '-', else as text or LaTeX
+                    if line.startswith('-'):
+                        st.markdown(line)
+                    elif re.match(r"^[\s\w\(\)\+\-\*/^=]+$", line) and ('=' in line or '^' in line):
+                        try:
+                            st.latex(line)
+                        except Exception:
+                            st.write(line)
+                    else:
+                        st.write(line)
             save_step_json(folder_path, step_num, {
                 "step_no": step_num,
                 "model_output": step_text,
@@ -109,7 +129,8 @@ Problem: {question}
         if final_answer:
             st.markdown("---")
             st.success("### Final Answer")
-            # Remove any trailing text like "That’s sit!"
-            clean_final = re.sub(r"That.?s sit!?$", "", final_answer, flags=re.IGNORECASE).strip()
-            st.latex(clean_final)
-            save_final_answer(folder_path, clean_final)
+            try:
+                st.latex(final_answer)
+            except Exception:
+                st.write(final_answer)
+            save_final_answer(folder_path, final_answer)
